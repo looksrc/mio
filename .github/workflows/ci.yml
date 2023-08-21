@@ -31,6 +31,18 @@ jobs:
       run: cargo test --all-features
     - name: Tests release build
       run: cargo test --release --all-features
+  TestPoll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUSTFLAGS: "--cfg mio_unsupported_force_poll_poll"
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Tests
+      run: cargo test --all-features
+    - name: Tests release build
+      run: cargo test --release --all-features
   MinimalVersions:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
@@ -46,8 +58,15 @@ jobs:
     - name: Tests
       run: cargo test --all-features
   MSRV:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "windows-latest"]
+        # TODO: once we update our MSRV above 1.53 add macOS again. Currently
+        # macOS, specifically Xcode 14, broke support for rustc < 1.53. See
+        # https://github.com/rust-lang/rust/issues/105167.
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@master
@@ -57,7 +76,9 @@ jobs:
         toolchain: 1.46.0
     - name: Check
       # We only run check allowing us to use newer features in tests.
-      run: cargo check --all-features
+      # We enable all features except for the `log` feature as since log v0.4.19
+      # it requires a MSRV later then rustc 1.46.
+      run: cargo check --no-default-features --features os-poll,os-ext,net
   Nightly:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -131,6 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - Test
+      - TestPoll
       - MinimalVersions
       - MSRV
       - Nightly
