@@ -12,9 +12,12 @@ use std::{fmt, io};
 use crate::sys::IoSourceState;
 use crate::{event, Interest, Registry, Token};
 
+/// 对提供事件源的RawFd或RawSocket的包装.
+/// 将所有事件源统一为一个类型,以便于统一Poll的所有事件操作.
 /// Adapter for a [`RawFd`] or [`RawSocket`] providing an [`event::Source`]
 /// implementation.
 ///
+/// IoSource可以让任意FD或套接字注册到Poll实例
 /// `IoSource` enables registering any FD or socket wrapper with [`Poll`].
 ///
 /// While only implementations for TCP, UDP, and UDS (Unix only) are provided,
@@ -77,14 +80,19 @@ impl<T> IoSource<T> {
         }
     }
 
+    /// 执行一个IO操作,确保套接字在遇到了WouldBlock错误后接收更多事件
     /// Execute an I/O operations ensuring that the socket receives more events
     /// if it hits a [`WouldBlock`] error.
+    ///
+    /// # 注意
+    /// 此方法对所有IO操作都是必须的,以确保一旦套接字在WouldBlock错误之后重新就绪用户能接收事件
     ///
     /// # Notes
     ///
     /// This method is required to be called for **all** I/O operations to
     /// ensure the user will receive events once the socket is ready again after
     /// returning a [`WouldBlock`] error.
+    ///
     ///
     /// [`WouldBlock`]: io::ErrorKind::WouldBlock
     pub fn do_io<F, R>(&self, f: F) -> io::Result<R>
@@ -94,7 +102,11 @@ impl<T> IoSource<T> {
         self.state.do_io(f, &self.inner)
     }
 
+    /// 返回内部IO源,丢弃状态
     /// Returns the I/O source, dropping the state.
+    ///
+    /// # 注意
+    /// 为了确保不再收到更多事件,先要执行deregister
     ///
     /// # Notes
     ///
@@ -107,6 +119,7 @@ impl<T> IoSource<T> {
     }
 }
 
+/// 使用此方法时要注意,所有可能阻塞的IO操作必须先执行do_io
 /// Be careful when using this method. All I/O operations that may block must go
 /// through the [`do_io`] method.
 ///
@@ -119,6 +132,7 @@ impl<T> Deref for IoSource<T> {
     }
 }
 
+/// 使用此方法时要注意,所有可能阻塞的IO操作必须先执行do_io
 /// Be careful when using this method. All I/O operations that may block must go
 /// through the [`do_io`] method.
 ///
@@ -247,6 +261,7 @@ where
     }
 }
 
+/// 将IO事件源IoSource与事件监听器Poll/Registry/Selector进行关联
 /// Used to associate an `IoSource` with a `sys::Selector`.
 #[cfg(debug_assertions)]
 #[derive(Debug)]
@@ -267,6 +282,8 @@ impl SelectorId {
         }
     }
 
+    /// 与Registry进行关联,将Registry的ID设置给自己
+    /// 本ID的值必须是初始值,如果不是初始值说明已经关联过Registry,则返回错误
     /// Associate an I/O source with `registry`, returning an error if its
     /// already registered.
     fn associate(&self, registry: &Registry) -> io::Result<()> {
@@ -283,6 +300,7 @@ impl SelectorId {
         }
     }
 
+    /// 校验是否与Registry有关联关系
     /// Check the association of an I/O source with `registry`, returning an
     /// error if its registered with a different `Registry` or not registered at
     /// all.
@@ -305,6 +323,7 @@ impl SelectorId {
         }
     }
 
+    /// 解除关联,将自己置为初始值
     /// Remove a previously made association from `registry`, returns an error
     /// if it was not previously associated with `registry`.
     fn remove_association(&self, registry: &Registry) -> io::Result<()> {

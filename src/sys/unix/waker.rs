@@ -37,12 +37,19 @@ mod fdbased {
     }
 
     impl Waker {
+        /// 创建Waker
+        /// 
+        /// 创建一个eventfd对象,并将readable事件注册到事件监听器中,如epoll
         pub fn new(selector: &Selector, token: Token) -> io::Result<Waker> {
             let waker = WakerInternal::new()?;
             selector.register(waker.as_raw_fd(), token, Interest::READABLE)?;
             Ok(Waker { waker })
         }
 
+        /// 执行唤醒
+        ///
+        /// 本质是触发eventfd的readable事件给epoll监听器..
+        /// 触发事件的方式就是向eventfd中写入8字节的无符号整数
         pub fn wake(&self) -> io::Result<()> {
             self.waker.wake()
         }
@@ -73,8 +80,11 @@ mod eventfd {
     use std::io::{self, Read, Write};
     use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 
+    /// Waker由eventfd支持
     /// Waker backed by `eventfd`.
     ///
+    /// eventfd是一个高效的64位计数器.所有写入必须8字节,转为无符号整数累加计数.
+    /// 读取也必须是8字节,返回计数后,原计数清零.
     /// `eventfd` is effectively an 64 bit counter. All writes must be of 8
     /// bytes (64 bits) and are converted (native endian) into an 64 bit
     /// unsigned integer and added to the count. Reads must also be 8 bytes and
@@ -97,11 +107,16 @@ mod eventfd {
             Ok(WakerInternal { fd: file })
         }
 
+        /// 执行唤醒操作
+        ///
+        /// 向eventfs写入8字节整数,字节序使用本地字节序
+        /// 向eventfs写入值,会导致eventfd对应的readable事件就绪,然后被epoll检测到
         pub fn wake(&self) -> io::Result<()> {
             let buf: [u8; 8] = 1u64.to_ne_bytes();
             match (&self.fd).write(&buf) {
                 Ok(_) => Ok(()),
                 Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
+                    // 写操作仅在计数器即将溢出时会阻塞,此时我们重置计数器为0并重新唤醒
                     // Writing only blocks if the counter is going to overflow.
                     // So we'll reset the counter to 0 and wake it again.
                     self.reset()?;
@@ -116,6 +131,7 @@ mod eventfd {
             let _ = self.reset();
         }
 
+        /// 重置eventfd对象,仅当wake失败时调用
         /// Reset the eventfd object, only need to call this if `wake` fails.
         fn reset(&self) -> io::Result<()> {
             let mut buf: [u8; 8] = 0u64.to_ne_bytes();
@@ -129,6 +145,7 @@ mod eventfd {
         }
     }
 
+    /// 获取原始的文件描述符
     impl AsRawFd for WakerInternal {
         fn as_raw_fd(&self) -> RawFd {
             self.fd.as_raw_fd()

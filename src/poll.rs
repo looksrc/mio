@@ -250,13 +250,19 @@ use crate::{event, sys, Events, Interest, Token};
 /// [`signalfd`]: https://man7.org/linux/man-pages/man2/signalfd.2.html
 /// [`SourceFd`]: unix/struct.SourceFd.html
 /// [`Poll::poll`]: struct.Poll.html#method.poll
+/// 
+/// /// 关系:
+/// Poll -> Registry -> Selector -> 监听器的RawFd
 pub struct Poll {
     registry: Registry,
 }
 
+/// 注册IO事件监听器
 /// Registers I/O resources.
+/// 
 pub struct Registry {
     selector: sys::Selector,
+    /// 当前注册表是否有关联的Waker
     /// Whether this selector currently has an associated waker.
     #[cfg(all(debug_assertions, not(target_os = "wasi")))]
     has_waker: Arc<AtomicBool>,
@@ -264,6 +270,7 @@ pub struct Registry {
 
 impl Poll {
     cfg_os_poll! {
+        /// 创建一个Poll句柄,即Registry
         /// Return a new `Poll` handle.
         ///
         /// This function will make a syscall to the operating system to create
@@ -321,6 +328,7 @@ impl Poll {
         &self.registry
     }
 
+    /// 监测等待就绪事件
     /// Wait for readiness events
     ///
     /// Blocks the current thread and waits for readiness events for any of the
@@ -423,6 +431,7 @@ impl Poll {
     }
 }
 
+/// 获取事件监听器的原始文件描述符,比如epoll的描述符
 #[cfg(all(unix, not(mio_unsupported_force_poll_poll)))]
 impl AsRawFd for Poll {
     fn as_raw_fd(&self) -> RawFd {
@@ -437,6 +446,7 @@ impl fmt::Debug for Poll {
 }
 
 impl Registry {
+    /// 注册一个需要被监听事件的IO事件源[event::Source]到Poll监听器
     /// Register an [`event::Source`] with the `Poll` instance.
     ///
     /// Once registered, the `Poll` instance will monitor the event source for
@@ -548,6 +558,7 @@ impl Registry {
         source.register(self, token, interests)
     }
 
+    /// 重新注册IO事件源
     /// Re-register an [`event::Source`] with the `Poll` instance.
     ///
     /// Re-registering an event source allows changing the details of the
@@ -616,6 +627,7 @@ impl Registry {
         source.reregister(self, token, interests)
     }
 
+    /// 移除一个注册的IO事件源
     /// Deregister an [`event::Source`] with the `Poll` instance.
     ///
     /// When an event source is deregistered, the `Poll` instance will no longer
@@ -675,8 +687,10 @@ impl Registry {
         source.deregister(self)
     }
 
+    /// 创建一个具有所有权的独立注册表
     /// Creates a new independently owned `Registry`.
     ///
+    /// 此新注册表与原注册表共享事件监听器
     /// Event sources registered with this `Registry` will be registered with
     /// the original `Registry` and `Poll` instance.
     pub fn try_clone(&self) -> io::Result<Registry> {
@@ -687,8 +701,12 @@ impl Registry {
         })
     }
 
+    /// 内部校验确保每个Poll实例只关联了一个Waker
     /// Internal check to ensure only a single `Waker` is active per [`Poll`]
     /// instance.
+    /// 
+    /// 当为false时说明目前没有关联Waker,当为true时表明当前已有关联Waker,不能再次关联Waker
+    /// 
     #[cfg(all(debug_assertions, not(target_os = "wasi")))]
     pub(crate) fn register_waker(&self) {
         assert!(

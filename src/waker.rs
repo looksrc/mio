@@ -80,14 +80,26 @@ pub struct Waker {
 }
 
 impl Waker {
+    /// 创建一个Waker
     /// Create a new `Waker`.
+    ///
+    /// 关联关系
+    /// Waker -> sys::Waker -> sys::WakerInternal -> std::fs::File -> eventfd
+    ///
+    /// registry提供了事件监听对象,如epoll
+    /// token唤醒事件句柄eventfd注册到epoll时设置的token
     pub fn new(registry: &Registry, token: Token) -> io::Result<Waker> {
         #[cfg(debug_assertions)]
         registry.register_waker();
         sys::Waker::new(registry.selector(), token).map(|inner| Waker { inner })
     }
 
+    /// 唤醒epoll监听器
     /// Wake up the [`Poll`] associated with this `Waker`.
+    ///
+    /// 原理:
+    /// 创建Waker时,将eventfd注册到了epoll监听器中.
+    /// wake向eventfd写入数据,触发其readable事件,被监听器epoll监测到.
     ///
     /// [`Poll`]: struct.Poll.html
     pub fn wake(&self) -> io::Result<()> {

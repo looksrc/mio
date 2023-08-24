@@ -73,6 +73,7 @@ use std::io;
 /// }
 /// ```
 pub trait Source {
+    /// 把自己注册到提供的Registry中
     /// Register `self` with the given `Registry` instance.
     ///
     /// This function should not be called directly. Use [`Registry::register`]

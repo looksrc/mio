@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.cargo.features": [
+        "os-poll",
+        "net",
+    ],
+    "rust-analyzer.cargo.target": "x86_64-unknown-linux-gnu"
+}

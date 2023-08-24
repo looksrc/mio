@@ -49,15 +49,18 @@ cfg_os_poll! {
                     IoSourceState
                 }
 
+                /// 执行提供的闭包操作
                 pub fn do_io<T, F, R>(&self, f: F, io: &T) -> io::Result<R>
                 where
                     F: FnOnce(&T) -> io::Result<R>,
                 {
+                    // 我们不持有状态,因此我们只需要执行IO函数并返回
                     // We don't hold state, so we can just call the function and
                     // return.
                     f(io)
                 }
 
+                /// 将原始文件句柄注册到事件监听器
                 pub fn register(
                     &mut self,
                     registry: &Registry,
@@ -65,10 +68,12 @@ cfg_os_poll! {
                     interests: Interest,
                     fd: RawFd,
                 ) -> io::Result<()> {
+                    // 不持有状态,直接透传
                     // Pass through, we don't have any state
                     registry.selector().register(fd, token, interests)
                 }
 
+                /// 修改原始文件句柄的注册信息
                 pub fn reregister(
                     &mut self,
                     registry: &Registry,
@@ -76,11 +81,14 @@ cfg_os_poll! {
                     interests: Interest,
                     fd: RawFd,
                 ) -> io::Result<()> {
+                    // 不持有状态,直接透传
                     // Pass through, we don't have any state
                     registry.selector().reregister(fd, token, interests)
                 }
 
+                /// 删除原始文件句柄在监听器的注册信息
                 pub fn deregister(&mut self, registry: &Registry, fd: RawFd) -> io::Result<()> {
+                    // 不持有状态,直接透传
                     // Pass through, we don't have any state
                     registry.selector().deregister(fd)
                 }
