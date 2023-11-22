@@ -3,7 +3,11 @@ use crate::sys;
 
 use std::fmt;
 
+/// 就绪事件的列表.用于Poll::poll()方法接收当前所有就绪事件<br>
 /// A collection of readiness events.
+/// 
+/// 结构:
+/// Events -> sys::Events -> Vec<Event> = Vec<libc::epoll_event>
 ///
 /// `Events` is passed as an argument to [`Poll::poll`] and will be used to
 /// receive any new readiness events received since the last poll. Usually, a

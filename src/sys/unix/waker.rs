@@ -80,11 +80,11 @@ mod eventfd {
     use std::io::{self, Read, Write};
     use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 
-    /// Waker由eventfd支持
+    /// Waker由eventfd支持.<br>
     /// Waker backed by `eventfd`.
     ///
     /// eventfd是一个高效的64位计数器.所有写入必须8字节,转为无符号整数累加计数.
-    /// 读取也必须是8字节,返回计数后,原计数清零.
+    /// 读取也必须是8字节,返回计数后,原计数清零.<br>
     /// `eventfd` is effectively an 64 bit counter. All writes must be of 8
     /// bytes (64 bits) and are converted (native endian) into an 64 bit
     /// unsigned integer and added to the count. Reads must also be 8 bytes and

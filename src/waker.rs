@@ -2,7 +2,13 @@ use crate::{sys, Registry, Token};
 
 use std::io;
 
+/// Waker可以跨线程唤醒[`Poll`]. <br>
 /// Waker allows cross-thread waking of [`Poll`].
+///
+/// 原理:
+/// - 1.创建唤醒器: new(),创建虚拟文件eventfd并将readable事件注册到epoll中进行监听.
+/// - 2.执行唤醒: wake(),只要向eventfd写入数据就会触发其readable事件,被epoll监测到.
+/// - 3.解除阻塞: 未设置超时的poll.poll()方法如果探测不到就绪事件则会阻塞.当探测到eventfd+readable事件,即会解除阻塞
 ///
 /// When created it will cause events with [`readable`] readiness and the
 /// provided `token` if [`wake`] is called, possibly from another thread.
@@ -11,18 +17,22 @@ use std::io;
 /// [`readable`]: ./event/struct.Event.html#method.is_readable
 /// [`wake`]: struct.Waker.html#method.wake
 ///
-/// # Notes
-///
+/// # 注意, Notes
+/// 
+/// 仅在Waker确定存活的情况下才能被投递Waker事件.<br>
 /// `Waker` events are only guaranteed to be delivered while the `Waker` value
 /// is alive.
 ///
+/// 每个Poll实例只能激活一个Waker.如果需要多线程访问可以使用Arc<Waker>.
+/// 当一个Poll实例注册了多个Waker时会发生什么是不确定的.<br>
 /// Only a single `Waker` can be active per [`Poll`], if multiple threads need
 /// access to the `Waker` it can be shared via for example an `Arc`. What
 /// happens if multiple `Waker`s are registered with the same `Poll` is
 /// unspecified.
 ///
-/// # Implementation notes
+/// # 实现说明, Implementation notes
 ///
+/// 在支持kqueue的平台,使用`EVFILT_USER`事件过滤器.<br>
 /// On platforms that support kqueue this will use the `EVFILT_USER` event
 /// filter, see [implementation notes of `Poll`] to see what platforms support
 /// kqueue. On Linux it uses [eventfd].
@@ -30,8 +40,9 @@ use std::io;
 /// [implementation notes of `Poll`]: struct.Poll.html#implementation-notes
 /// [eventfd]: https://man7.org/linux/man-pages/man2/eventfd.2.html
 ///
-/// # Examples
+/// # 例子, Examples
 ///
+/// 在另一个线程唤醒[`Poll`]实例.<br>
 /// Wake a [`Poll`] instance from another thread.
 ///
 #[cfg_attr(feature = "os-poll", doc = "```")]
@@ -96,10 +107,6 @@ impl Waker {
 
     /// 唤醒epoll监听器
     /// Wake up the [`Poll`] associated with this `Waker`.
-    ///
-    /// 原理:
-    /// 创建Waker时,将eventfd注册到了epoll监听器中.
-    /// wake向eventfd写入数据,触发其readable事件,被监听器epoll监测到.
     ///
     /// [`Poll`]: struct.Poll.html
     pub fn wake(&self) -> io::Result<()> {

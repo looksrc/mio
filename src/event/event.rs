@@ -2,8 +2,11 @@ use crate::{sys, Token};
 
 use std::fmt;
 
+/// 一个就绪事件.<br>
+/// 底层结构: Event -> sys::Event -> libc::epoll_event. <br>
 /// A readiness event.
 ///
+/// `Event` 是一个和[`Token`]配对的就绪状态.由[`Poll::poll`]返回.<br>
 /// `Event` is a readiness state paired with a [`Token`]. It is returned by
 /// [`Poll::poll`].
 ///

@@ -2,7 +2,13 @@ use crate::{Interest, Registry, Token};
 
 use std::io;
 
+/// 事件源特质.<br>
+/// 提供的方法是把[自身+Token+感兴趣事件]通过Registry注册到监视器.<br>
+/// 凡是实现了这个特质,就可以通过poll.register(..)作为事件源进行事件注册.<br>
 /// An event source that may be registered with [`Registry`].
+/// 
+/// 执行流程:<br>
+/// 监视器实例poll.register(source,token,interist) -> 事件源自身source.register(registry,token,interist) -> 注册
 ///
 /// Types that implement `event::Source` can be registered with
 /// `Registry`. Users of Mio **should not** use the `event::Source` trait
@@ -112,6 +118,8 @@ pub trait Source {
     fn deregister(&mut self, registry: &Registry) -> io::Result<()>;
 }
 
+
+/// 如果T是事件源,则Box<T>也是事件源.T和Box<T>作为事件源时是等价的.
 impl<T> Source for Box<T>
 where
     T: Source + ?Sized,

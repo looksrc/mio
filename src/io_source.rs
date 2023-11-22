@@ -12,14 +12,14 @@ use std::{fmt, io};
 use crate::sys::IoSourceState;
 use crate::{event, Interest, Registry, Token};
 
-/// 对提供事件源的RawFd或RawSocket的包装.
-/// 将所有事件源统一为一个类型,以便于统一Poll的所有事件操作.
+/// 对事件源RawFd和RawSocket进行包装,统一实现[`event::Source`].<br>
 /// Adapter for a [`RawFd`] or [`RawSocket`] providing an [`event::Source`]
 /// implementation.
 ///
-/// IoSource可以让任意FD或套接字注册到Poll实例
+/// `IoSource`实现了[`event::Source`]可以注册任意FD或socket的包装到[`Poll`]中.<br>
 /// `IoSource` enables registering any FD or socket wrapper with [`Poll`].
 ///
+/// 目前仅提供TCP,UDP,UDS的实现.MIO支持对可通过底层OS选择器注册的任意的FD或socket进行注册.<br>
 /// While only implementations for TCP, UDP, and UDS (Unix only) are provided,
 /// Mio supports registering any FD or socket that can be registered with the
 /// underlying OS selector. `IoSource` provides the necessary bridge.
@@ -27,17 +27,17 @@ use crate::{event, Interest, Registry, Token};
 /// [`RawFd`]: std::os::unix::io::RawFd
 /// [`RawSocket`]: std::os::windows::io::RawSocket
 ///
-/// # Notes
-///
+/// # 注意, Notes
+/// 
+/// 为了正确处理注册和事件,所有IO操作(read,write,etc)必须通过[`do_io`]入口执行,以确保内部状态做相应更新.<br>
 /// To handle the registrations and events properly **all** I/O operations (such
 /// as `read`, `write`, etc.) must go through the [`do_io`] method to ensure the
 /// internal state is updated accordingly.
 ///
 /// [`Poll`]: crate::Poll
 /// [`do_io`]: IoSource::do_io
-/*
 ///
-/// # Examples
+/// # 例子, Examples
 ///
 /// Basic usage.
 ///
@@ -61,10 +61,16 @@ use crate::{event, Interest, Registry, Token};
 /// #     Ok(())
 /// # }
 /// ```
-*/
 pub struct IoSource<T> {
+    /// 单元值,主要为IoSource类型提供一些辅助方法
+    /// - do_io(f,io): 执行io操作,f(io)..所有io操作都抽象为了一个统一入口do_io(op,io)
+    /// - register,reregister,deregister: 通过Registry注册入口提供的事件注册方法注册事件(fd,token,interiest)
     state: IoSourceState,
+
+    /// 被包装的真实IO事件源
     inner: T,
+
+    /// IoSource与Selector的关联关系,用于调试
     #[cfg(debug_assertions)]
     selector_id: SelectorId,
 }
@@ -80,15 +86,13 @@ impl<T> IoSource<T> {
         }
     }
 
-    /// 执行一个IO操作,确保套接字在遇到了WouldBlock错误后接收更多事件
+    /// 执行一个IO操作,确保套接字在遇到了WouldBlock错误后可以接收更多事件.<br>
     /// Execute an I/O operations ensuring that the socket receives more events
     /// if it hits a [`WouldBlock`] error.
     ///
-    /// # 注意
-    /// 此方法对所有IO操作都是必须的,以确保一旦套接字在WouldBlock错误之后重新就绪用户能接收事件
+    /// # 注意, Notes
     ///
-    /// # Notes
-    ///
+    /// 所有IO操作都必须通过这个统一入口执行,确保套接字在WouldBlock错误之后如果重新就绪,用户能继续接收事件.<br>
     /// This method is required to be called for **all** I/O operations to
     /// ensure the user will receive events once the socket is ready again after
     /// returning a [`WouldBlock`] error.
@@ -102,7 +106,7 @@ impl<T> IoSource<T> {
         self.state.do_io(f, &self.inner)
     }
 
-    /// 返回内部IO源,丢弃状态
+    /// 剥出内部事件源.<br>
     /// Returns the I/O source, dropping the state.
     ///
     /// # 注意

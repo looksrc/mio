@@ -250,19 +250,21 @@ use crate::{event, sys, Events, Interest, Token};
 /// [`signalfd`]: https://man7.org/linux/man-pages/man2/signalfd.2.html
 /// [`SourceFd`]: unix/struct.SourceFd.html
 /// [`Poll::poll`]: struct.Poll.html#method.poll
-/// 
-/// /// 关系:
-/// Poll -> Registry -> Selector -> 监听器的RawFd
+///
+/// 关系: Poll -> Registry -> [Selector,has_waker] -> 底层IO框架的fd
 pub struct Poll {
     registry: Registry,
 }
 
-/// 注册IO事件监听器
+/// 所有被监听事件注册入口.<br>
 /// Registers I/O resources.
-/// 
+///
 pub struct Registry {
+    /// 底层IO框架的句柄,如epoll_fd
     selector: sys::Selector,
-    /// 当前注册表是否有关联的Waker
+
+    /// 当前注册表是否有关联的Waker.
+    /// 创建Waker时会关联Registry: Waker::new(registry: &Registry, token: Token).<br>
     /// Whether this selector currently has an associated waker.
     #[cfg(all(debug_assertions, not(target_os = "wasi")))]
     has_waker: Arc<AtomicBool>,
@@ -704,9 +706,9 @@ impl Registry {
     /// 内部校验确保每个Poll实例只关联了一个Waker
     /// Internal check to ensure only a single `Waker` is active per [`Poll`]
     /// instance.
-    /// 
+    ///
     /// 当为false时说明目前没有关联Waker,当为true时表明当前已有关联Waker,不能再次关联Waker
-    /// 
+    ///
     #[cfg(all(debug_assertions, not(target_os = "wasi")))]
     pub(crate) fn register_waker(&self) {
         assert!(

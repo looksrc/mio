@@ -15,9 +15,10 @@ use crate::sys::tcp::set_reuseaddr;
 use crate::sys::tcp::{bind, listen, new_for_addr};
 use crate::{event, sys, Interest, Registry, Token};
 
+/// 将标准的Tcp监听器包装到IoSource并加套壳.<br>
 /// A structure representing a socket server
 ///
-/// # Examples
+/// # 例子, Examples
 ///
 #[cfg_attr(feature = "os-poll", doc = "```")]
 #[cfg_attr(not(feature = "os-poll"), doc = "```ignore")]
@@ -32,6 +33,7 @@ use crate::{event, sys, Interest, Registry, Token};
 /// let mut poll = Poll::new()?;
 /// let mut events = Events::with_capacity(128);
 ///
+/// // 注册监听句柄到`Poll`中.
 /// // Register the socket with `Poll`
 /// poll.registry().register(&mut listener, Token(0), Interest::READABLE)?;
 ///
